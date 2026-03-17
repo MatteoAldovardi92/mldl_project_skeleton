@@ -5,6 +5,8 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 import torchvision.transforms as T
+import wandb
+
 
 # Define the transforms for the images
 transform = T.Compose([
@@ -59,7 +61,8 @@ def train(epoch, model, train_loader, criterion, optimizer):
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         inputs, targets = inputs.cuda(), targets.cuda()
 
-        # todo...
+        outputs = model.predict(inputs)
+        loss = criterion(targets,outputs)
 
         running_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -84,8 +87,9 @@ def validate(model, val_loader, criterion):
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(val_loader):
             inputs, targets = inputs.cuda(), targets.cuda()
-
-            # todo...
+            
+            outputs = model.predict(inputs)
+            loss = criterio(targets, outputs)
 
             val_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -99,36 +103,31 @@ def validate(model, val_loader, criterion):
     return val_accuracy
 
 
-model = CustomNet().cuda()
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+ # Initialize wandb run
+    wandb.init(project="mldl-project", name="custom-net-run")
 
-best_acc = 0
+    model = CustomNet().cuda()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    
+    # Watch model gradients and parameters
+    wandb.watch(model, criterion, log="all", log_freq=10)
 
-# Run the training process for {num_epochs} epochs
-num_epochs = 10
-for epoch in range(1, num_epochs + 1):
-    train(epoch, model, train_loader, criterion, optimizer)
+    best_acc = 0
+    num_epochs = 10
+    for epoch in range(1, num_epochs + 1):
+        train(epoch, model, train_loader, criterion, optimizer)
+        val_accuracy = validate(model, val_loader, criterion, epoch)
+        best_acc = max(best_acc, val_accuracy)
 
-    # At the end of each training iteration, perform a validation step
-    val_accuracy = validate(model, val_loader, criterion)
+    print(f'Best validation accuracy: {best_acc:.2f}%')
+    wandb.log({"best_val_accuracy": best_acc})
 
-    # Best validation accuracy
-    best_acc = max(best_acc, val_accuracy)
-
-
-print(f'Best validation accuracy: {best_acc:.2f}%')
-
-
-
-print('Saving model')
-# 1. Create the 'models' directory if it doesn't exist
-os.makedirs('models', exist_ok=True)
-
-# 2. Define the path where the model will be saved
-save_path = 'models/my_model.pth'
-
-
-
-
-
+    print('Saving model')
+    os.makedirs('models', exist_ok=True)
+    save_path = 'models/my_model.pth'
+    torch.save(model.state_dict(), save_path)
+    
+    # Save model to wandb
+    wandb.save(save_path)
+    wandb.finish()
