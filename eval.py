@@ -1,77 +1,35 @@
-import os
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder
-import torchvision.transforms as T
-from sklearn.metrics import f1_score
-import numpy as np
+import torch.nn as nn
+from dataset.dataloader import get_dataloaders
+from train import CustomNet
 
-# Make sure to import your model class from train.py!
-# from train import CustomNet
+def evaluate_model(model_path):
+    print(f"Loading model from {model_path}...")
+    model = CustomNet().cuda()
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
 
-# Placeholder for your CustomNet (replace with your actual import)
-class CustomNet(nn.Module):
-    def __init__(self):
-        super(CustomNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, stride=1)
-        self.fc1 = nn.Linear(64 * 224 * 224, 200) # Simplified for example
-    def forward(self, x):
-        x = self.conv1(x).relu()
-        x = x.view(x.size(0), -1)
-        return self.fc1(x)
+    _, val_loader = get_dataloaders(batch_size=32, num_workers=2)
+    criterion = nn.CrossEntropyLoss()
 
-# Define the transforms for the images
-transform = T.Compose([
-    T.Resize((224, 224)),  # Resize to fit the input dimensions of the network
-    T.ToTensor(),
-    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+    val_loss = 0
+    correct = 0
+    total = 0
 
-# Point to the directory where you extracted the dataset
-# Note: test set often doesn't have subfolders per class by default in tiny-imagenet, 
-# so you might need a custom dataset class for test, but assuming it's structured correctly:
-test_dataset = ImageFolder(root='mldl_project_skeleton/data/tiny-imagenet/tiny-imagenet-200/val', transform=transform)
+    with torch.no_grad():
+        for inputs, targets in val_loader:
+            inputs, targets = inputs.cuda(), targets.cuda()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            val_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
 
-# Create the DataLoaders (shuffle=False for evaluation)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=2)
+    val_accuracy = 100. * correct / total
+    val_loss = val_loss / len(val_loader)
+    
+    print(f"Final Evaluation - Loss: {val_loss:.6f}, Accuracy: {val_accuracy:.2f}%")
 
-model_folder_path = "/content/mldl_project_skeleton/models"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-F1_macro_list = []
-
-# Make sure the directory exists before iterating
-if os.path.exists(model_folder_path):
-    for model_file in os.listdir(model_folder_path):
-        if model_file.endswith('.pth') or model_file.endswith('.pt'):
-            model_path = os.path.join(model_folder_path, model_file)
-            print(f"Evaluating {model_file}...")
-            
-            # 1. Instantiate model and load weights
-            model = CustomNet().to(device)
-            model.load_state_dict(torch.load(model_path))
-            model.eval() # Set model to evaluation mode
-            
-            all_preds = []
-            all_targets = []
-            
-            # 2. Evaluation loop
-            with torch.no_grad():
-                for inputs, targets in test_loader:
-                    inputs, targets = inputs.to(device), targets.to(device)
-                    
-                    outputs = model(inputs)
-                    _, predicted = outputs.max(1)
-                    
-                    all_preds.extend(predicted.cpu().numpy())
-                    all_targets.extend(targets.cpu().numpy())
-            
-            # 3. Calculate metrics
-            f1 = f1_score(all_targets, all_preds, average='macro')
-            F1_macro_list.append((model_file, f1))
-            print(f"F1 Macro for {model_file}: {f1:.4f}")
-else:
-    print(f"Directory {model_folder_path} does not exist yet.")
-
-print("Final Results:", F1_macro_list)
+if __name__ == "__main__":
+    evaluate_model('checkpoints/my_model.pth')

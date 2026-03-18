@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+echo "🚀 Starting the ML pipeline..."
 
-echo "Starting dataloader creationg..."
-python utils/data.py
+# Load secrets into environment variables so train.py can access them
+if [ -f "secret.txt" ]; then
+    export $(grep -v '^#' secret.txt | xargs)
+    echo "✅ Secrets loaded."
+else
+    echo "⚠️ secret.txt not found. Continuing without it..."
+fi
 
-echo "Starting training..."
+echo "🧠 Running train.py..."
 python train.py
 
-echo "Training finished. Starting evaluation..."
-python eval.py
-
-echo "Pipeline complete!"
+echo "✅ Pipeline finished!"
