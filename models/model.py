@@ -1,4 +1,5 @@
-import torch 
+import torch
+import torch.nn as nn
 
 def get_model():
 
@@ -23,7 +24,7 @@ def get_model():
           self.classifier = nn.Sequential(
               nn.Flatten(),
               # 128 channels * 28 * 28 spatial size
-              nn.Linear(128 * 14 * 14, 256),
+              nn.Linear(128 * 28 * 28, 256),
               nn.ReLU(),
               nn.Linear(256, 200)                           # 200 classes for Tiny ImageNet
           )

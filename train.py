@@ -7,19 +7,19 @@ import wandb
 # Import our custom dataloader logic
 from dataset.dataloader import get_dataloaders
 
-from model.model import get_model
+from models.model import get_model
 
 
 
 
-def train(epoch, model, train_loader, criterion, optimizer):
+def train(epoch, model, train_loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
     correct = 0
     total = 0
 
     for batch_idx, (inputs, targets) in enumerate(train_loader):
-        inputs, targets = inputs.cuda(), targets.cuda()
+        inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
         outputs = model(inputs)
@@ -37,7 +37,7 @@ def train(epoch, model, train_loader, criterion, optimizer):
     print(f'Train Epoch: {epoch} Loss: {train_loss:.6f} Acc: {train_accuracy:.2f}%')
     wandb.log({"train_loss": train_loss, "train_acc": train_accuracy, "epoch": epoch})
 
-def validate(model, val_loader, criterion, epoch):
+def validate(model, val_loader, criterion, epoch, device):
     model.eval()
     val_loss = 0
     correct = 0
@@ -45,7 +45,7 @@ def validate(model, val_loader, criterion, epoch):
 
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(val_loader):
-            inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, targets = inputs.to(device), targets.to(device)
             
             outputs = model(inputs)
             loss = criterion(outputs, targets)
@@ -69,7 +69,8 @@ if __name__ == "__main__":
     # Setup data, model, criterion, optimizer
     train_loader, val_loader = get_dataloaders(batch_size=32, num_workers=2)
     
-    model = get_model().cuda() 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = get_model().to(device) 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     
@@ -79,8 +80,8 @@ if __name__ == "__main__":
     num_epochs = 10
     
     for epoch in range(1, num_epochs + 1):
-        train(epoch, model, train_loader, criterion, optimizer)
-        val_accuracy = validate(model, val_loader, criterion, epoch)
+        train(epoch, model, train_loader, criterion, optimizer, device)
+        val_accuracy = validate(model, val_loader, criterion, epoch, device)
         best_acc = max(best_acc, val_accuracy)
 
     print(f'Best validation accuracy: {best_acc:.2f}%')
