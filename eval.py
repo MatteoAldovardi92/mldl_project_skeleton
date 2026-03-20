@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 from dataset.dataloader import get_dataloaders
 from train import CustomNet
+from models.model import get_model
 
 def evaluate_model(model_path):
     print(f"Loading model from {model_path}...")
-    model = CustomNet().cuda()
+    model = get_model().cuda()
     model.load_state_dict(torch.load(model_path))
     model.eval()
 

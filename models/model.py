@@ -32,3 +32,6 @@ def get_model():
           x = self.features(x)
           x = self.classifier(x)
           return x
+
+  m = CustomNet() # the function has to return an instance
+  return m

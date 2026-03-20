@@ -7,29 +7,10 @@ import wandb
 # Import our custom dataloader logic
 from dataset.dataloader import get_dataloaders
 
-# Define the custom neural network
-class CustomNet(nn.Module):
-    def __init__(self):
-        super(CustomNet, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.classifier = nn.Sequential(
-            nn.Linear(128 * 56 * 56, 512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 200) # 200 classes for Tiny ImageNet
-        )
+from model.model import get_model
 
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x 
+
+
 
 def train(epoch, model, train_loader, criterion, optimizer):
     model.train()
@@ -88,7 +69,7 @@ if __name__ == "__main__":
     # Setup data, model, criterion, optimizer
     train_loader, val_loader = get_dataloaders(batch_size=32, num_workers=2)
     
-    model = CustomNet().cuda()
+    model = get_model().cuda() 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     
